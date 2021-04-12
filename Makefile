@@ -110,4 +110,5 @@ clean:
 	@rm -f obj/*.o
 	@rm -f obj/GPU/*.o
 	@rm -f obj/SECPK1/*.o
+	@rm -f obj/hash/*.o
 
