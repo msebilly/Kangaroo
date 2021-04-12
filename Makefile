@@ -9,7 +9,10 @@ SRC = SECPK1/IntGroup.cpp main.cpp SECPK1/Random.cpp \
       Timer.cpp SECPK1/Int.cpp SECPK1/IntMod.cpp \
       SECPK1/Point.cpp SECPK1/SECP256K1.cpp \
       GPU/GPUEngine.o Kangaroo.cpp HashTable.cpp \
-      Backup.cpp Thread.cpp Check.cpp Network.cpp Merge.cpp PartMerge.cpp
+      Backup.cpp Thread.cpp Check.cpp Network.cpp Merge.cpp PartMerge.cpp \
+      Base58.cpp hash/ripemd160.cpp \
+      hash/sha256.cpp hash/sha512.cpp hash/ripemd160_sse.cpp \
+      hash/sha256_sse.cpp Bech32.cpp HashTable.cpp
 
 OBJDIR = obj
 
