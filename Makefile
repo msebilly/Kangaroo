@@ -29,7 +29,7 @@ SRC = SECPK1/IntGroup.cpp main.cpp SECPK1/Random.cpp \
       Backup.cpp Network.cpp Merge.cpp PartMerge.cpp \
       Base58.cpp hash/ripemd160.cpp \
       hash/sha256.cpp hash/sha512.cpp hash/ripemd160_sse.cpp \
-      hash/sha256_sse.cpp Bech32.cpp HashTable.cpp
+      hash/sha256_sse.cpp Bech32.cpp
 
 OBJDIR = obj
 
@@ -41,7 +41,7 @@ OBJET = $(addprefix $(OBJDIR)/, \
       Network.o Merge.o PartMerge.o \
       hash/ripemd160.o hash/sha256.o hash/sha512.o \
       hash/ripemd160_sse.o hash/sha256_sse.o Bech32.o \
-      Base58.o HashTable.o )
+      Base58.o )
 
 endif
 
