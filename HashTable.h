@@ -1,5 +1,5 @@
 /*
- * This file is part of the BSGS distribution (https://github.com/JeanLucPons/Kangaroo).
+ * This file is part of the BTCCollider distribution (https://github.com/JeanLucPons/BTCCollider).
  * Copyright (c) 2020 Jean Luc PONS.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -19,39 +19,25 @@
 #define HASHTABLEH
 
 #include <string>
-#include <vector>
-#include "SECPK1/Point.h"
-#ifdef WIN64
-#include <Windows.h>
-#endif
 
-#define HASH_SIZE_BIT 18
-#define HASH_SIZE (1<<HASH_SIZE_BIT)
-#define HASH_MASK (HASH_SIZE-1)
+#define HASH_SIZE 65536
 
-#define ADD_OK        0
-#define ADD_DUPLICATE 1
-#define ADD_COLLISION 2
+union hash160_s {
 
-union int128_s {
-
-  uint8_t  i8[16];
-  uint16_t i16[8];
-  uint32_t i32[4];
-  uint64_t i64[2];
+  uint8_t i8[20];
+  uint16_t i16[10];
+  uint32_t i32[5];
+  uint64_t i64[3];
 
 };
 
-typedef union int128_s int128_t;
 
-#define safe_free(x) if(x) {free(x);x=NULL;}
+typedef union hash160_s hash160_t;
 
-// We store only 128 (+18) bit a the x value which give a probabilty a wrong collision after 2^73 entries
+typedef struct ENTRY {
 
-typedef struct {
-
-  int128_t  x;    // Poisition of kangaroo (128bit LSB)
-  int128_t  d;    // Travelled distance (b127=sign b126=kangaroo type, b125..b0 distance
+  hash160_t start;
+  hash160_t end;
 
 } ENTRY;
 
@@ -63,41 +49,44 @@ typedef struct {
 
 } HASH_ENTRY;
 
+#define NO_COLLISION 0
+#define COLLISION 1
+#define FALSE_COLLISION 2
+
 class HashTable {
 
 public:
 
   HashTable();
-  int Add(Int *x,Int *d,uint32_t type);
-  int Add(uint64_t h,int128_t *x,int128_t *d);
-  int Add(uint64_t h,ENTRY *e);
-  uint64_t GetNbItem();
-  void Reset();
-  std::string GetSizeInfo();
-  void PrintInfo();
+  void SetParam(int n,int nbFull,uint16_t colMask);
+  int AddHash(hash160_t *start, hash160_t *end);
   void SaveTable(FILE *f);
-  void SaveTable(FILE* f,uint32_t from,uint32_t to,bool printPoint=true);
   void LoadTable(FILE *f);
-  void LoadTable(FILE* f,uint32_t from,uint32_t to);
-  void ReAllocate(uint64_t h,uint32_t add);
-  void SeekNbItem(FILE* f,bool restorePos = false);
-  void SeekNbItem(FILE* f,uint32_t from,uint32_t to);
-
-  HASH_ENTRY    E[HASH_SIZE];
-  // Collision info
-  Int      kDist;
-  uint32_t kType;
-
-  static void Convert(Int *x,Int *d,uint32_t type,uint64_t *h,int128_t *X,int128_t *D);
-  static int MergeH(uint32_t h,FILE* f1,FILE* f2,FILE* fd,uint32_t *nbDP,uint32_t* duplicate,
-                    Int* d1,uint32_t* k1,Int* d2,uint32_t* k2);
-  static void CalcDistAndType(int128_t d,Int* kDist,uint32_t* kType);
+  std::string GetHashStr(hash160_t *h);
+  void PrintTable(int limit=0);
+  int GetNbItem();
+  int getCollisionSize(hash160_t *h1, hash160_t *h2);
+  void getCollision(hash160_t *a, hash160_t *b, hash160_t *e);
+  void Reset();
+  bool hashCollide(hash160_t *h1, hash160_t *h2);
+  int  compareHash(hash160_t *h1, hash160_t *h2);
+  bool compare(HashTable *ht);
+  uint16_t getHash(hash160_t *h);
+  ENTRY *CreateEntry(hash160_t *h1, hash160_t *h2);
+  double GetSizeMB();
 
 private:
 
-  ENTRY *CreateEntry(int128_t *x,int128_t *d);
-  static int compare(int128_t *i1,int128_t *i2);
-  std::string GetStr(int128_t *i);
+
+  HASH_ENTRY E[HASH_SIZE];
+
+  int       cSize;
+  int       nbFull;
+  int       totalItem;
+  uint16_t  colMask;
+  hash160_t a;
+  hash160_t b;
+  hash160_t e;
 
 };
 
