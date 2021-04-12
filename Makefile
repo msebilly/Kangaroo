@@ -91,7 +91,7 @@ bsgs: $(OBJET)
 	@echo Making Kangaroo...
 	$(CXX) $(OBJET) $(LFLAGS) -o kangaroo
 
-$(OBJET): | $(OBJDIR) $(OBJDIR)/SECPK1 $(OBJDIR)/GPU
+$(OBJET): | $(OBJDIR) $(OBJDIR)/SECPK1 $(OBJDIR)/GPU $(OBJDIR)/hash
 
 $(OBJDIR):
 	mkdir -p $(OBJDIR)
@@ -101,6 +101,9 @@ $(OBJDIR)/GPU: $(OBJDIR)
 
 $(OBJDIR)/SECPK1: $(OBJDIR)
 	cd $(OBJDIR) &&	mkdir -p SECPK1
+
+$(OBJDIR)/hash: $(OBJDIR)
+	cd $(OBJDIR) &&	mkdir -p hash
 
 clean:
 	@echo Cleaning...
