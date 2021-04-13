@@ -198,6 +198,7 @@ bool Kangaroo::Output(Int *pk,char sInfo,int sType) {
   ::fprintf(f,"Key#%2d [%d%c]Pub:  0x%s \n",keyIdx,sType,sInfo,secp->GetPublicKeyHex(true,keysToSearch[keyIdx]).c_str());
   if(PR.equals(keysToSearch[keyIdx])) {
     ::fprintf(f,"       Priv: 0x%s \n",pk->GetBase16().c_str());
+    // Bill
     ::fprintf(f,"       Pub : 0x%s \n",secp->GetPublicKeyHex(true,PR).c_str());
       hash160_t h1;
       secp->GetHash160(P2PKH, true, PR, h1.i8);
@@ -232,6 +233,17 @@ bool  Kangaroo::CheckKey(Int d1,Int d2,uint8_t type) {
   pk.ModAddK1order(&d2);
 
   Point P = secp->ComputePublicKey(&pk);
+  // Bill
+
+    hash160_t h1;
+    secp->GetHash160(P2PKH, true, P, h1.i8);
+    std::string addr = secp->GetAddress(P2PKH, true, h1.i8).c_str();
+
+    if (addr.compare("1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH") == 0) {
+        ::fprintf(stdout,"       Priv: 0x%s \n",pk.GetBase16().c_str());
+        ::fprintf(stdout,"       Pub : 0x%s \n",secp->GetPublicKeyHex(true,P).c_str());
+        ::fprintf(stdout,"       Add : %s\n", secp->GetAddress(P2PKH, true, h1.i8).c_str());
+    }
 
   if(P.equals(keyToSearch)) {
     // Key solved    
