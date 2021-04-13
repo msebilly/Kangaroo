@@ -590,7 +590,7 @@ void Kangaroo::WorkInfo(std::string &fName) {
 
 #ifndef WIN64
   int fd = fileno(f1);
-  posix_fadvise(fd,0,0,POSIX_FADV_RANDOM|POSIX_FADV_NOREUSE);
+  //posix_fadvise(fd,0,0,POSIX_FADV_RANDOM|POSIX_FADV_NOREUSE);
 #endif
 
   uint32_t dp1;

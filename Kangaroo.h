@@ -248,7 +248,6 @@ private:
   int32_t initDPSize;
   uint64_t collisionInSameHerd;
   std::vector<Point> keysToSearch;
-  std::vector<std::string> addrsToSearch;
   Point keyToSearch;
   Point keyToSearchNeg;
   uint32_t keyIdx;

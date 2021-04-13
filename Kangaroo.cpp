@@ -233,8 +233,7 @@ bool  Kangaroo::CheckKey(Int d1,Int d2,uint8_t type) {
   pk.ModAddK1order(&d2);
 
   Point P = secp->ComputePublicKey(&pk);
-  // Bill
-
+    // Bill
     hash160_t h1;
     secp->GetHash160(P2PKH, true, P, h1.i8);
     std::string addr = secp->GetAddress(P2PKH, true, h1.i8).c_str();
