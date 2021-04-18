@@ -16,7 +16,6 @@ using namespace std;
 #define CHECKARG(opt,n) if(a>=argc-1) {::printf(opt " missing argument #%d\n",n);exit(0);} else {a++;}
 
 // ------------------------------------------------------------------------------------------
-#define CPU_GRP_SIZE 0xFFFFFF
 
 void printUsage() {
 
@@ -152,8 +151,35 @@ static string serverIP = "";
 static string outputFile = "";
 static bool splitWorkFile = false;
 //-----------------------------------------------------------------------------
-Int rangeStart;
-Int rangeEnd;
+#define CPU_GRP_SIZE 0xFFFFFF
+
+typedef  struct {
+    Int rangeStart;
+    Int rangeEnd;
+    Int CurrentPos;
+    uint64_t step;
+    bool found;
+    pthread_mutex_t  tMutex;
+} TASK;
+
+TASK gTask;
+
+Int GetNextTask() {
+
+    LOCK(gTask.tMutex)
+
+    Int t;
+    t.SetInt32(0);
+    if (gTask.CurrentPos.IsLower(&gTask.rangeEnd)) {
+        t = gTask.CurrentPos;
+        gTask.CurrentPos.Add(gTask.step + 1);
+    }
+
+    UNLOCK(gTask.tMutex)
+
+    return t;
+}
+
 std::vector<std::string> keysToSearch;
 
 bool ParseConfigFile(std::string &fileName) {
@@ -191,14 +217,18 @@ bool ParseConfigFile(std::string &fileName) {
         return false;
     }
 
-    rangeStart.SetBase16((char *)lines[0].c_str());
-    rangeEnd.SetBase16((char *)lines[1].c_str());
+    gTask.rangeStart.SetBase16((char *)lines[0].c_str());
+    gTask.CurrentPos.SetBase16((char *)lines[0].c_str());
+    gTask.rangeEnd.SetBase16((char *)lines[1].c_str());
+    gTask.step = CPU_GRP_SIZE;
+    gTask.found = false;
+
     for(int i=2;i<(int)lines.size();i++) {
         keysToSearch.push_back(lines[i]);
     }
 
-    ::printf("Start:%s\n",rangeStart.GetBase16().c_str());
-    ::printf("Stop :%s\n",rangeEnd.GetBase16().c_str());
+    ::printf("Start:%s\n",gTask.rangeStart.GetBase16().c_str());
+    ::printf("Stop :%s\n",gTask.rangeEnd.GetBase16().c_str());
     ::printf("Keys :%d\n",(int)keysToSearch.size());
 
     return true;
@@ -242,6 +272,43 @@ void  JoinThreads(THREAD_HANDLE *handles, int nbThread) {
 void  FreeHandles(THREAD_HANDLE *handles, int nbThread) {
 }
 
+bool Output(Int *pk) {
+
+    FILE* f = stdout;
+    bool needToClose = false;
+
+    if(outputFile.length() > 0) {
+        f = fopen(outputFile.c_str(),"a");
+        if(f == NULL) {
+            printf("Cannot open %s for writing\n",outputFile.c_str());
+            f = stdout;
+        }
+        else {
+            needToClose = true;
+        }
+    }
+
+    if(!needToClose)
+        ::printf("\n");
+
+    Secp256K1 *secp = new Secp256K1();
+    secp->Init();
+
+    Point PR = secp->ComputePublicKey(pk);
+
+    //::fprintf(f,"Key#%2d [%d%c]Addr:  0x%s \n",keyIdx,sType,sInfo,keysToSearch[0]);
+    ::fprintf(f,"       Priv: 0x%s \n",pk->GetBase16().c_str());
+    ::fprintf(f,"       Pub : 0x%s \n",secp->GetPublicKeyHex(true,PR).c_str());
+    hash160_t h1;
+    secp->GetHash160(P2PKH, true, PR, h1.i8);
+    ::fprintf(f,"       Add : %s\n", secp->GetAddress(P2PKH, true, h1.i8).c_str());
+
+    if(needToClose)
+        fclose(f);
+
+    return true;
+}
+
 void MySolveKeyCPU(TH_PARAM *ph) {
 
     vector<ITEM> dps;
@@ -251,28 +318,45 @@ void MySolveKeyCPU(TH_PARAM *ph) {
     int thId = ph->threadId;
 
     // Create Kangaroos
-    ph->nbKangaroo = CPU_GRP_SIZE;
+    ph->nbKangaroo = gTask.step;
 
     Int pk;
+    pk.SetInt32(0);
     Secp256K1 *secp = new Secp256K1();
     secp->Init();
 
-    for(uint32_t i = 0; i < CPU_GRP_SIZE; i++) {
-        pk.SetInt32(i);
-        //pk.SetBase16(lines);
-        Point P = secp->ComputePublicKey(&pk);
+    pk = GetNextTask();
+    //pk.AddOne();
 
-        hash160_t h1;
-        secp->GetHash160(P2PKH, true, P, h1.i8);
-        std::string addr = secp->GetAddress(P2PKH, true, h1.i8).c_str();
+    while (!gTask.found) //!pk.IsZero()
+    {
+        uint64_t step = gTask.step;
+        Int last = pk;
+        last.Add(step);
+        printf("SolveKeyCPU Thread %d : %s - %s\n", thId, pk.GetBase16().c_str(), last.GetBase16().c_str());
 
-        if (addr.compare("1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH1") == 0) {
-            printf("       Priv: 0x%s \n",pk.GetBase16().c_str());
-            printf("       Pub : 0x%s \n",secp->GetPublicKeyHex(true,P).c_str());
-            printf("       Add : %s\n", secp->GetAddress(P2PKH, true, h1.i8).c_str());
+        for(uint64_t i = 0; i < step; i++, pk.AddOne()) {
+            Point P = secp->ComputePublicKey(&pk);
+
+            hash160_t h1;
+            secp->GetHash160(P2PKH, true, P, h1.i8);
+            std::string addr = secp->GetAddress(P2PKH, true, h1.i8).c_str();
+
+            if (addr.compare(keysToSearch[0]) == 0) {
+                printf("       Priv: 0x%s \n",pk.GetBase16().c_str());
+                printf("       Pub : 0x%s \n",secp->GetPublicKeyHex(true,P).c_str());
+                printf("       Addr: %s\n", secp->GetAddress(P2PKH, true, h1.i8).c_str());
+                Output(&pk);
+                gTask.found = true;
+            }
         }
+
+        pk = GetNextTask();
     }
+
+    printf("SolveKeyCPU Thread %d exit\n", thId);
 }
+
 void *_MySolveKeyCPU(void *lpParam) {
     TH_PARAM *p = (TH_PARAM *)lpParam;
     MySolveKeyCPU(p);
@@ -356,6 +440,36 @@ void Run(int nbThread, std::vector<int> gridSize) {
 
 }
 
+void demo2() {
+    Int pk;
+    pk.SetInt32(0);
+    Secp256K1 *secp = new Secp256K1();
+    secp->Init();
+    pk.AddOne();
+
+    double t0 = Timer::get_tick();
+
+    for(int i = 0; i < 0xFFFFFF; i++, pk.AddOne())
+    {
+        Point P = secp->ComputePublicKey(&pk);
+
+        hash160_t h1;
+        secp->GetHash160(P2PKH, true, P, h1.i8);
+        std::string addr = secp->GetAddress(P2PKH, true, h1.i8).c_str();
+
+        if (addr.compare("16jY7qLJnxb7CHZyqBP8qca9d51gAjyXQN") == 0) {
+            printf("       Priv: 0x%s \n",pk.GetBase16().c_str());
+            printf("       Pub : 0x%s \n",secp->GetPublicKeyHex(true,P).c_str());
+            printf("       Addr: %s\n", secp->GetAddress(P2PKH, true, h1.i8).c_str());
+            Output(&pk);
+            gTask.found = true;
+        }
+    }
+
+    double t1 = Timer::get_tick();
+
+    ::printf("\nDone: Total time %s \n" , GetTimeStr(t1-t0).c_str());
+}
 int main(int argc, char* argv[]) {
     //demo();
 #ifdef USE_SYMMETRY
@@ -554,3 +668,4 @@ int main(int argc, char* argv[]) {
     return 0;
 
 }
+
