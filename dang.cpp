@@ -440,23 +440,48 @@ void Run(int nbThread, std::vector<int> gridSize) {
 
 }
 
+typedef unsigned long long cycles_t;
+inline cycles_t currentcycles() {
+    cycles_t result;
+    __asm__ __volatile__ ("rdtsc" : "=A" (result));
+    return result;
+}
+
 void demo2() {
+    char * lines = "5B3F38AF935A3640D158E871CE6E9666DB862636383386EE510F18CCC3BD72EB";
     Int pk;
     pk.SetInt32(0);
     Secp256K1 *secp = new Secp256K1();
     secp->Init();
-    pk.AddOne();
+    pk.SetBase16(lines);
+    //pk.AddOne();
 
-    double t0 = Timer::get_tick();
+    double t1;
+    double p5, p1, p2, p3, p4;
+    p1 = p2 = p3 = p4 = p5 = 0;
 
-    for(int i = 0; i < 0xFFFFFF; i++, pk.AddOne())
+    hash160_t h1;
+    double T0 = Timer::get_tick();
+
+    for(int i = 0; i < 0xFFFFFF; i++)
     {
+        t1 = Timer::get_tick();
+        pk.AddOne();
+        p1 += Timer::get_tick() - t1;
+
+        t1 = Timer::get_tick();
         Point P = secp->ComputePublicKey(&pk);
+        p2 += Timer::get_tick() - t1;
 
-        hash160_t h1;
+        t1 = Timer::get_tick();
         secp->GetHash160(P2PKH, true, P, h1.i8);
-        std::string addr = secp->GetAddress(P2PKH, true, h1.i8).c_str();
+        p3 += Timer::get_tick() - t1;
 
+        t1 = Timer::get_tick();
+        std::string addr = secp->GetAddress(P2PKH, true, h1.i8).c_str();
+        p4 += Timer::get_tick() - t1;
+
+        t1 = Timer::get_tick();
         if (addr.compare("16jY7qLJnxb7CHZyqBP8qca9d51gAjyXQN") == 0) {
             printf("       Priv: 0x%s \n",pk.GetBase16().c_str());
             printf("       Pub : 0x%s \n",secp->GetPublicKeyHex(true,P).c_str());
@@ -464,14 +489,20 @@ void demo2() {
             Output(&pk);
             gTask.found = true;
         }
+        p5 += Timer::get_tick() - t1;
     }
 
-    double t1 = Timer::get_tick();
+    double T1 = Timer::get_tick();
+    ::printf("\nDone: Total time %s \n" , GetTimeStr(T1-T0).c_str());
 
-    ::printf("\nDone: Total time %s \n" , GetTimeStr(t1-t0).c_str());
+    ::printf("AddOne     : %s\n", GetTimeStr(p1).c_str());
+    ::printf("PublicKey  : %s\n", GetTimeStr(p2).c_str());
+    ::printf("GetHash160 : %s\n", GetTimeStr(p3).c_str());
+    ::printf("GetAddress : %s\n", GetTimeStr(p4).c_str());
+    ::printf("compare    : %s\n", GetTimeStr(p5).c_str());
 }
 int main(int argc, char* argv[]) {
-    //demo();
+    //demo2();
 #ifdef USE_SYMMETRY
     printf("Kangaroo v" RELEASE " (with symmetry)\n");
 #else
@@ -501,6 +532,9 @@ int main(int argc, char* argv[]) {
             a++;
         } else if (strcmp(argv[a], "-h") == 0) {
             printUsage();
+        }else if (strcmp(argv[a], "-demo") == 0) {
+            demo2();
+            return 0 ;
         } else if(strcmp(argv[a],"-l") == 0) {
 
 #ifdef WITHGPU
