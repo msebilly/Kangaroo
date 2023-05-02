@@ -10,6 +10,8 @@ g++-10 obj/SECPK1/IntGroup.o obj/dang.o obj/SECPK1/Random.o obj/Timer.o obj/SECP
 #include <string>
 #include <string.h>
 #include <stdexcept>
+#include <random>
+#include <iostream>
 
 using namespace std;
 
@@ -447,6 +449,52 @@ inline cycles_t currentcycles() {
     return result;
 }
 
+void worker(char * start, char * target, int step) {
+    Int pk;
+    pk.SetBase16(start);
+    Secp256K1 *secp = new Secp256K1();
+    secp->Init();
+    hash160_t h1;
+    printf("       Priv Sart: %064x \n", pk.GetBase16().c_str());
+    for(int i = 0; i < 1<<step; i++)
+    {
+        Point P = secp->ComputePublicKey(&pk);
+        secp->GetHash160(P2PKH, true, P, h1.i8);
+        std::string addr = secp->GetAddress(P2PKH, true, h1.i8).c_str();
+        if (addr.compare(target) == 0) {
+            printf("       Priv: 0x%s \n",pk.GetBase16().c_str());
+            printf("       Pub : 0x%s \n",secp->GetPublicKeyHex(true,P).c_str());
+            printf("       Addr: %s\n", secp->GetAddress(P2PKH, true, h1.i8).c_str());
+            Output(&pk);
+            gTask.found = true;
+        }
+        pk.AddOne();
+    }
+    printf("       Priv End : %64x \n",pk.GetBase16().c_str());
+}
+
+void bigIntRand(int index, int step) {
+    std::random_device rd;
+    std::mt19937_64 gen(rd());
+    std::uniform_int_distribution<int64_t> dis(0, INT64_MAX);
+    uint64_t random_num = dis(gen);
+    random_num = random_num >> (64 + step - index);
+
+    Int rnd = Int(random_num);
+    rnd.ShiftL(step);
+    //::printf("%s\n", rnd.GetBase16().c_str());
+
+    Int pos = Int(int64_t(1));
+    pos.ShiftL(index-1);
+    //::printf("%s\n", pos.GetBase16().c_str());
+    pos.Add(&pos, &rnd);
+    ::printf("\n%s\n", pos.GetBase16().c_str());
+    double T0 = Timer::get_tick();
+    worker(pos.GetBase16().data(), "13zb1hQbWVsc2S7ZTZnP2G4undNNpdh5so", step);
+    double T1 = Timer::get_tick();
+    ::printf("\nDone: Total time %s, Step %d \n" , GetTimeStr(T1-T0).c_str(), step);
+}
+
 void demo2() {
     char * lines = "5B3F38AF935A3640D158E871CE6E9666DB862636383386EE510F18CCC3BD72EB";
     Int pk;
@@ -454,7 +502,6 @@ void demo2() {
     Secp256K1 *secp = new Secp256K1();
     secp->Init();
     pk.SetBase16(lines);
-    //pk.AddOne();
 
     double t1;
     double p5, p1, p2, p3, p4;
@@ -463,25 +510,21 @@ void demo2() {
     hash160_t h1;
     double T0 = Timer::get_tick();
 
-    for(int i = 0; i < 0xFFFFFF; i++)
+    for(int i = 0; i < 1<<24; i++)
     {
-        t1 = Timer::get_tick();
-        pk.AddOne();
-        p1 += Timer::get_tick() - t1;
-
-        t1 = Timer::get_tick();
+        //t1 = Timer::get_tick();
         Point P = secp->ComputePublicKey(&pk);
-        p2 += Timer::get_tick() - t1;
+        //p2 += Timer::get_tick() - t1;
 
-        t1 = Timer::get_tick();
+        //t1 = Timer::get_tick();
         secp->GetHash160(P2PKH, true, P, h1.i8);
-        p3 += Timer::get_tick() - t1;
+        //p3 += Timer::get_tick() - t1;
 
-        t1 = Timer::get_tick();
+        //t1 = Timer::get_tick();
         std::string addr = secp->GetAddress(P2PKH, true, h1.i8).c_str();
-        p4 += Timer::get_tick() - t1;
+        //p4 += Timer::get_tick() - t1;
 
-        t1 = Timer::get_tick();
+        //t1 = Timer::get_tick();
         if (addr.compare("16jY7qLJnxb7CHZyqBP8qca9d51gAjyXQN") == 0) {
             printf("       Priv: 0x%s \n",pk.GetBase16().c_str());
             printf("       Pub : 0x%s \n",secp->GetPublicKeyHex(true,P).c_str());
@@ -489,20 +532,79 @@ void demo2() {
             Output(&pk);
             gTask.found = true;
         }
-        p5 += Timer::get_tick() - t1;
+        //p5 += Timer::get_tick() - t1;
+
+        //t1 = Timer::get_tick();
+        pk.AddOne();
+        //p1 += Timer::get_tick() - t1;
     }
 
     double T1 = Timer::get_tick();
     ::printf("\nDone: Total time %s \n" , GetTimeStr(T1-T0).c_str());
+    printf("       Priv: 0x%s \n",pk.GetBase16().c_str());
 
-    ::printf("AddOne     : %s\n", GetTimeStr(p1).c_str());
-    ::printf("PublicKey  : %s\n", GetTimeStr(p2).c_str());
-    ::printf("GetHash160 : %s\n", GetTimeStr(p3).c_str());
-    ::printf("GetAddress : %s\n", GetTimeStr(p4).c_str());
-    ::printf("compare    : %s\n", GetTimeStr(p5).c_str());
+    //::printf("AddOne     : %s\n", GetTimeStr(p1).c_str());
+    //::printf("PublicKey  : %s\n", GetTimeStr(p2).c_str());
+    //::printf("GetHash160 : %s\n", GetTimeStr(p3).c_str());
+    //::printf("GetAddress : %s\n", GetTimeStr(p4).c_str());
+    //::printf("compare    : %s\n", GetTimeStr(p5).c_str());
 }
+
+void demo3() {
+
+    //char * lines = "5B3F38AF935A3640D158E871CE6E9666DB862636383386EE510F18CCC3BD72EB";
+    Int pk;
+    pk.SetInt32(1);
+    Secp256K1 *secp = new Secp256K1();
+    secp->Init();
+    //pk.SetBase16(lines);
+
+    hash160_t h1;
+    Point P = secp->ComputePublicKey(&pk);
+    secp->GetHash160(P2PKH, true, P, h1.i8);
+    std::string addr = secp->GetAddress(P2PKH, true, h1.i8).c_str();
+    printf("       Priv: 0x%s \n",pk.GetBase16().c_str());
+    printf("       Pub : 0x%s \n",secp->GetPublicKeyHex(true,P).c_str());
+    printf("       Addr: %s\n", secp->GetAddress(P2PKH, true, h1.i8).c_str());
+
+    //------------------------------
+
+    char * lines = "0000000000000000000000000000000000000000000000000000000000000001";
+    Int pk2;
+    pk2.SetInt32(0);
+    Secp256K1 *secp2 = new Secp256K1();
+    secp2->Init();
+    pk2.SetBase16(lines);
+
+    hash160_t h2;
+    Point P2 = secp2->ComputePublicKey(&pk2);
+    secp2->GetHash160(P2PKH, true, P2, h2.i8);
+    std::string addr2 = secp2->GetAddress(P2PKH, true, h2.i8).c_str();
+    printf("       Priv: 0x%s \n",pk2.GetBase16().c_str());
+    printf("       Pub : 0x%s \n",secp2->GetPublicKeyHex(true,P2).c_str());
+    printf("       Addr: %s\n", secp2->GetAddress(P2PKH, true, h2.i8).c_str());
+
+    //------------------------------
+    char * lines3 = "1";
+    Int pk3;
+    pk3.SetInt32(1);
+    Secp256K1 *secp3 = new Secp256K1();
+    secp3->Init();
+    pk3.SetBase16(lines3);
+
+    hash160_t h3;
+    Point P3 = secp3->ComputePublicKey(&pk3);
+    secp3->GetHash160(P2PKH, true, P3, h3.i8);
+    std::string addr3 = secp3->GetAddress(P2PKH, true, h3.i8).c_str();
+    printf("       Priv: 0x%s \n",pk3.GetBase16().c_str());
+    printf("       Pub : 0x%s \n",secp3->GetPublicKeyHex(true,P3).c_str());
+    printf("       Addr: %s\n", secp3->GetAddress(P2PKH, true, h3.i8).c_str());
+}
+
 int main(int argc, char* argv[]) {
-    //demo2();
+    demo3();
+    bigIntRand(66, 24);
+    demo2();
 #ifdef USE_SYMMETRY
     printf("Kangaroo v" RELEASE " (with symmetry)\n");
 #else
